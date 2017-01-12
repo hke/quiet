@@ -1,0 +1,10 @@
+#!/bin/bash
+npoint=1000
+while true; do case "$1" in
+	-n) npoint="$2"; shift ;;
+	-f|-fmt) fmt="$2"; shift ;;
+	--) shift; break ;;
+	*) break ;;
+esac; shift; done
+if [[ $fmt ]]; then fmt="-fmt $fmt"; fi
+echo "set samples $npoint; set table; set output; plot $@; unset table" | gnuplot | gtab2tab $fmt

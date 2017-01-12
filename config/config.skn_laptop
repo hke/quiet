@@ -1,0 +1,42 @@
+# ================= Compilers ====================
+export F90   := gfortran
+export MPF90 := mpif90
+export MPF77 := mpif90
+export MPCC  := mpicc
+
+# =========== Compiler Optimizations =============
+
+# Compiler flags for all
+COMMON_FLAGS    := -O2 -fopenmp
+export F90FLAGS := $(COMMON_FLAGS) -fbacktrace -fexternal-blas -ffree-line-length-none
+export FFLAGS   := $(COMMON_FLAGS)
+export CFLAGS   := $(COMMON_FLAGS)
+export LDFLAGS  := -lm -lstdc++ -fopenmp
+
+ifeq ($(DEBUG), 1)
+	BOUNDS := -fbounds-check
+endif
+
+COMMON_FLAGS_DEBUG := -O0 -g -fopenmp
+COMMON_FLAGS_FORTRAN_DEBUG := $(COMMON_FLAGS_DEBUG) $(BOUNDS) -fbacktrace -fexternal-blas -ffree-line-length-none
+#COMMON_FLAGS_FORTRAN_DEBUG := $(COMMON_FLAGS_DEBUG) -check bounds -check format -check pointers -check uninit -check output_conversion -assume byterecl
+export F90FLAGS_DEBUG := $(COMMON_FLAGS_FORTRAN_DEBUG) -I$(HOME)/local/include
+export FFLAGS_DEBUG := $(COMMON_FLAGS_FORTRAN_DEBUG) -I$(HOME)/local/include
+export CFLAGS_DEBUG := $(COMMON_FLAGS_DEBUG)
+export LDFLAGS_DEBUG := -lm -lstdc++ -fopenmp
+
+# I will only specify -L for things not in one of the standard locations
+LDFLAGS  := $(LDFLAGS)  -L/usr/local/lib -L$(HOME)/local/lib
+CFLAGS   := $(CFLAGS)   -I$(HOME)/local/include
+F90FLAGS := $(F90FLAGS) -I$(HOME)/local/include
+
+export CFITSIO_LINK     := -lcfitsio
+export LAPACK_LINK      := -llapack -lblas
+export HEALPIX_LINK     := -lhealpix -lsharp
+export HEALPIX_LINK_CPP := -lhealpix_cxx -lcxxsupport -lfftpack -lhealpix
+export FFTW_LINK        := -lfftw3_threads -lfftw3f_threads -lfftw3 -lfftw3f
+export SCALAPACK_LIBS   := -lscalapack-openmpi
+export NOVAS_LINK       := -lnovas
+export PNG_LINK         := -lpng
+export HDF_LINK         := -lhdf5_fortran -lhdf5 
+export HDF_LINK_CPP     := -lhdf5 

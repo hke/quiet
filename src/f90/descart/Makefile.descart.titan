@@ -1,0 +1,62 @@
+F90C = ifort
+#F90FLAGS = -m64 -O2 -openmp -cm -vec_report0 
+F90FLAGS = -m64 -openmp -cm -vec_report0 -g
+
+MPIF90C = mpif90
+MPIF90FLAGS = -m64 -openmp -cm -vec_report0 -O3
+
+#System specific CFITSIO macros
+FITSDIR= /usit/titan/u1/hke/local
+FITSLIB= -L$(FITSDIR)/lib -lcfitsio
+
+#System specific SLALIB macros
+SLALIBDIR= $(HOME)/usr/lib
+SLALIB = -L$(SLALIBDIR) -lslalib
+
+HEALDIR = /usit/titan/u1/hke/local
+HEALIB = -L$(HEALDIR)/lib -lhealpix
+HEALINC = -I. -I$(HEALDIR)/include
+
+FFTWDIR = /usit/titan/u1/sigurdkn/local
+FFTWLIB = -L$(FFTWDIR)/lib -lfftw3
+FFTWINC = -I$(FFTWDIR)/include 
+
+LAPACKLIB = -L/site/intel/cmkl/8.1/lib/em64t/ -L/site/lib -lmkl_lapack64 -lmkl -lmkl_lapack32
+
+LIB = $(HEALIB) $(FFTWLIB) $(FITSLIB) $(SLALIB) $(LAPACKLIB)
+INC = $(HEALINC) $(FFTWINC) $(FITSINC)
+
+TOOLS = ds_precision.o ds_utils.o ds_types.o  ds_maptools.o ds_fitstools.o random.o inifile.o ds_globalpointing.o ds_focalplane.o ds_pointing.o
+#F90_COMPILE = $(F90C) $(F90FLAGS)
+OBJ= ds_multidetector.o ds_solver.o ds_quiet_simple.o 
+OBJ_TEST= ds_multidetector.o ds_solver.o ds_quiet_simple.o test_naive.o
+
+
+default: all quiet
+
+%.o: %.f90
+	$(F90C) $(F90FLAGS) $(HEALINC) $(FFTWINC) -c $*.f90 $(SLALIB) $(HEALIB)
+
+
+mpi: all
+	$(MPIF90C) $(MPIF90FLAGS) $(HEALINC) $(FFTWINC) -c ds_multidetector.F90
+	$(MPIF90C) $(MPIF90FLAGS) $(HEALINC) $(FFTWINC) -c ds_solver.f90
+
+quiet: mpi
+	$(MPIF90C) $(MPIF90FLAGS) $(INC) $(LIB) -c ds_quiet_simple.f90
+	$(MPIF90C) $(MPIF90FLAGS) $(INC) $(TOOLS) -c ds_quiet_driver.f90
+	$(MPIF90C) $(MPIF90FLAGS) $(INC)   -o descart_quiet  ds_quiet_driver.o $(OBJ) $(TOOLS) $(LIB)
+
+
+
+	
+
+all: $(TOOLS)
+
+tidy:
+	rm -rf *.mod *.o
+
+
+clean:
+	rm -rf *.mod *.o
+	rm -f descart_quiet

@@ -1,0 +1,23 @@
+#!/bin/bash
+case $# in
+	0) exit;;
+	1) file="-" ;;
+	*) file="$1"; shift;;
+esac
+cmds=`echo $1 | perl -pe 's/([^\\\\]):/\1 /g' | perl -pe 's/\\\\:/:/g'`
+output="set format xy '%25.17e';; set terminal table; set output; plot "
+tmp=($cmds)
+n=${#tmp[@]}
+j=1
+if [ "$file" == "-" ]; then tmpfile=/tmp/tr$RANDOM.txt; cat > "$tmpfile"
+else tmpfile="$file"; fi
+for i in $cmds; do
+	if (( j==1 )); then tcol="$i"
+	else
+		output="$output '$tmpfile' u $tcol:$i"
+		if (( $j < $n )); then output="$output, "; fi
+	fi
+	j=$((j+1))
+done
+echo $output | gnuplot | gp2tab
+if [ "$file" == "-" ]; then rm -f "$tmpfile"; fi

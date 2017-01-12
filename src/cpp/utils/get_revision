@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+svn info "$1" | awk '/Revision/{print $2}'

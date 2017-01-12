@@ -1,0 +1,43 @@
+#!/bin/bash
+run=-1
+segment=-1
+module=-1
+diode=-1
+
+# Parse arguments
+args=("$@")
+nf=0
+for (( i=0; i < ${#args[@]}; i++ )); do
+	case "${args[$i]}" in
+		-r*) run=${args[$((++i))]} ;;
+		-s*) segment=${args[$((++i))]} ;;
+		*) infiles[$nf]="${args[$i]}" ; nf=$(($nf+1)) ;;
+	esac
+done
+if (( ${#infiles[@]} < 3 )); then
+	echo "Usage [options] database module diode [outfile]
+Options can be -run RUNID and -seg SEGNUM to restrict
+the operation to lines matching those.
+
+The result is printed to standard out, unless outfile
+is specified, in which case it goes there. It is safe
+to specify the same file as database and outfile."
+	exit
+fi
+database=${infiles[0]}
+module=${infiles[1]}
+diode=${infiles[2]}
+outfile="/dev/stdout"
+if (( ${#infiles[@]} > 3 )); then outfile=${infiles[3]}; fi
+tmpfile="/tmp/tmp$RANDOM.txt"
+awk "{if(($run < 0 || \$1 == $run) && ($segment < 0 || \$2 == $segment)) {
+already_there=0
+for(i = 4; i <= NF; i+=2) if(\$i == $module && \$(i+1) == $diode) already_there = 1;
+if(already_there) print
+else {
+	printf(\"%d %d %d \", \$1, \$2, \$3+1)
+	for(i = 4; i <= NF; i++) printf(\"%d \", \$i)
+	printf(\"%d %d\n\", $module, $diode)
+}} else print}" "$database" > "$tmpfile"
+cat "$tmpfile" > "$outfile"
+rm -f "$timpfile"

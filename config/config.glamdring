@@ -1,0 +1,41 @@
+# ================= Compilers ====================
+export MPICH_F90 := ifort
+
+export F90   := ifort
+export MPF90 := mpif90
+export MPF77 := mpif90
+export MPCC  := mpicc
+export CXX   := mpicxx
+export CC    := mpicc
+
+# =========== Compiler Optimizations =============
+
+# Compiler flags for all
+COMMON_FLAGS    := -O2
+export F90FLAGS := $(COMMON_FLAGS) #-fbacktrace -fexternal-blas -ffree-line-length-none
+export FFLAGS   := $(COMMON_FLAGS)
+export CFLAGS   := $(COMMON_FLAGS)
+export LDFLAGS  := -lm -lstdc++
+export OPENMP   := -openmp
+
+ifeq ($(DEBUG), 1)
+	BOUNDS := -fbounds-check
+endif
+
+COMMON_FLAGS_DEBUG := -O0 -g
+COMMON_FLAGS_FORTRAN_DEBUG := $(COMMON_FLAGS_DEBUG) $(BOUNDS) #-fbacktrace -fexternal-blas -ffree-line-length-none
+export F90FLAGS_DEBUG := $(COMMON_FLAGS_FORTRAN_DEBUG) -ompenmp -I$(HOME)/local/include
+export FFLAGS_DEBUG := $(COMMON_FLAGS_FORTRAN_DEBUG) -I$(HOME)/local/include
+export CFLAGS_DEBUG := $(COMMON_FLAGS_DEBUG)
+export LDFLAGS_DEBUG := -lm -lstdc++ -fopenmp
+
+export CFITSIO_LINK     := -lcfitsio
+export LAPACK_LINK      := -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
+export HEALPIX_LINK     := -lhealpix
+export HEALPIX_LINK_CPP := -lhealpix_cxx -lcxxsupport -lfftpack
+export FFTW_LINK        := -lfftw3 -lfftw3f -lfftw3_threads -lfftw3f_threads
+export SCALAPACK_LIBS   := -lmkl_scalapack_lp64 -lmkl_blacs_lp64
+export NOVAS_LINK       := -lnovas
+export PNG_LINK         := -lpng
+export HDF_LINK         := -lhdf5_fortran -lhdf5
+export HDF_LINK_CPP     := -lhdf5

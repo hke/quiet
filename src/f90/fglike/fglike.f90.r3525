@@ -1,0 +1,155 @@
+program fglike
+  use healpix_types
+  use rngmod
+  use quiet_utils
+  implicit none
+
+  real(dp), parameter :: k_B     = 1.3806503d-23
+  real(dp), parameter :: h       = 6.626068d-34
+  real(dp), parameter :: c       = 2.99792458d8
+  real(dp), parameter :: T_0     = 2.726d0
+
+  integer(i4b) :: i, j, k, l, m, n, q, p, numband, numcomp, numsim, seed
+  real(dp)     :: A_cmb, A_dust, min_cmb, max_cmb, min, fg_min, A_range(2,2), dA(2), T_d, alpha
+  real(dp)     :: A_in(2), beta(2), dbeta(2), s, mu, sigma, deg_fac, pixsize, polfactor, npix, sky_area
+  real(dp), allocatable, dimension(:,:)  :: lnL, x, lnL_sub, summary
+  real(dp), allocatable, dimension(:)    :: marg, d, a2t, rms, nu, NET, NET_array, ndet, obstime
+  type(planck_rng) :: handle
+
+  numband = 3
+  numcomp = 2
+  numsim  = 100
+  seed    = 8481
+  
+  call rand_init(handle, seed)
+  
+  allocate(d(numband), rms(numband), a2t(numband), nu(numband))
+  allocate(NET(numband), NET_array(numband), ndet(numband), obstime(numband))
+
+  obstime   = [2.5d0, 2.5d0, 2.5d0] * 24.d0*3600.d0      ! Observation time in seconds
+  NET       = [53.368632d0, 194.34570d0, 534.35253d0] ! uK sqrt(s)
+  ndet      = [3000.d0, 2167.d0, 833.d0]              ! Number of detectors
+  polfactor = sqrt(2.d0)                              ! 1 for radiometers, sqrt(2) for bolometers/MKIDs
+  NET_array = NET / sqrt(ndet) * polfactor
+  sky_area  = 1000.d0                                 ! Square degrees
+  pixsize   = 60.d0                                   ! arcmin
+  npix      = sky_area / (pixsize/60.d0)**2
+
+  rms = NET_array / sqrt(obstime) * sqrt(npix)
+  nu  = [150.d0, 260.d0, 350.d0]*1.d9
+  do i = 1, numband
+     a2t(i) = compute_ant2thermo_single(nu(i))
+  end do
+  write(*,*) 'a2t = ', real(a2t,sp)
+  write(*,*) 'rms = ', real(rms,sp)
+  write(*,*)
+
+  A_in = [1.d0, 1.d0]
+  beta = [1.6d0, 18.d0]
+  dbeta = [0.05d0, 0.5d0]*1 ! Set to zero if you don't want to marginalize over spectral parameters
+
+  n = 100
+  m = 10
+  A_range(1,1) = -3.d0
+  A_range(2,1) = 3.d0
+  A_range(1,2) = -3.d0
+  A_range(2,2) = 3.d0
+
+  allocate(lnL(n,n), x(n, numcomp), marg(n), lnL_sub(m,m), summary(n,3))
+  do j = 1, numcomp
+     dA(j)        = (A_range(2,j)-A_range(1,j)) / (n-1.d0)
+     do i = 1, n
+        x(i,j) = A_range(1,j) + (i-1)*dA(j)
+     end do
+  end do
+
+  open(59,file='cmb_allsims.dat')
+  do i = 1, numsim
+     ! Generate simulation
+     do j = 1,  numband
+        d(j) = A_in(1) + A_in(2) * a2t(j) * compute_one_comp_dust_spectrum(nu(j), nu(1), beta(1), beta(2)) + &
+             & rms(j) * rand_gauss(handle)
+     end do
+
+     lnL = 0.d0
+     do j = 1, n
+        do k = 1, n
+
+           lnL_sub = 0.d0
+           do q = 1, m
+              alpha = (beta(1)-dbeta(1)) + (q-1) * 2*dbeta(1)/(m-1)
+              do p = 1, m
+                 T_d = (beta(2)-dbeta(2)) + (p-1) * 2*dbeta(2)/(m-1)
+                 do l = 1, numband
+
+!                    s        = x(j,1) + x(k,2) * a2t(l) * compute_one_comp_dust_spectrum(nu(l), nu(1), beta(1), beta(2))
+                    s        = x(j,1) + x(k,2) * a2t(l) * compute_one_comp_dust_spectrum(nu(l), nu(1), alpha, T_d)
+                    lnL_sub(q,p) = lnL_sub(q,p) - 0.5d0*((d(l)-s)/rms(l))**2
+                 end do
+              end do
+           end do
+           lnL(j,k) = sum(exp(lnL_sub))
+           
+        end do
+     end do
+
+     marg = 0.d0
+     do j = 1, n
+        marg(j) = sum(lnL(j,:))
+     end do
+     marg = marg / (sum(marg) * dA(1))
+
+     mu      = sum(marg * x(:,1) * dA(1))
+     sigma   = sqrt(sum(marg * (x(:,1)-mu)**2 * dA(1)))
+     deg_fac = sigma / rms(1)
+     summary(i,:) = [mu, sigma, deg_fac]
+     write(*,*) i, real(mu,sp), real(sigma,sp), real(deg_fac,sp)
+     write(59,*) i, real(mu,sp), real(sigma,sp), real(deg_fac,sp)
+
+     if (i == 1) then
+        open(58,file='cmb_amp.dat')
+        do j = 1, n
+           write(58,*) x(j,1), marg(j)
+        end do
+        close(58)
+     end if
+     
+
+  end do
+  close(59)
+
+  write(*,*) 'CMB amplitude mean     = ', mean(summary(:,1))
+  write(*,*) 'CMB amplitude RMS      = ', mean(summary(:,2))
+  write(*,*) 'RMS degradation factor = ', mean(summary(:,3))
+
+
+contains
+
+  function compute_ant2thermo_single(frequency)
+    implicit none
+
+    real(dp), intent(in)  :: frequency
+    real(dp)              :: compute_ant2thermo_single
+
+    real(dp)     :: x
+
+    x = h*frequency / (k_B*T_0)
+    compute_ant2thermo_single = (exp(x)-1.d0)**2 / (x**2 * exp(x))
+    
+  end function compute_ant2thermo_single
+
+  function compute_one_comp_dust_spectrum(nu, nu_ref, alpha, T_d)
+    implicit none
+    
+    real(dp),     intent(in)  :: nu, nu_ref, alpha, T_d
+    real(dp)                  :: compute_one_comp_dust_spectrum
+
+    real(dp) :: x
+
+    x = h / (k_B*T_d)
+    compute_one_comp_dust_spectrum = &
+         & (exp(x*nu_ref)-1.d0) / (exp(x*nu)-1.d0) * (nu / nu_ref)**(alpha+1.d0)
+
+  end function compute_one_comp_dust_spectrum
+
+end program fglike

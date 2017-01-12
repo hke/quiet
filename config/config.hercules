@@ -1,0 +1,118 @@
+# Config file for a generic GCC based compile,
+# Using the reference LAPACK/Blas and assuming
+# both LAPACK and CFITSIO are in /usr/local.
+
+
+# =============== Installation ===================
+
+# Final install location.  This defaults to a
+# subdirectory of the top-level directory called
+# install_$QUIET.
+#export INSTALL := /usr/local
+
+
+# =============== System Tools ===================
+
+# The defaults should be fine for any normal
+# GNU/Linux operating system...
+
+# Here you can override the make version to use
+#export MAKE := gmake
+
+# How to make a tar.gz file
+#export CTAR := tar czvf
+
+# The archive command
+#export AR := ar
+
+# Archive options to create a library
+#export ARFLAGS := crv
+
+# The ranlib command
+#export RANLIB := ranlib
+
+
+# ================= Compilers ====================
+
+# Serial Fortran 90 compiler.  Default is "f90".
+export F90 := ifort
+
+# MPI Fortran 90 compiler.  Default is "mpif90".
+export MPF90 := mpif90
+
+# MPI Fortran 77 compiler.  Default is "mpif77".
+export MPF77 := mpif90
+
+# MPI C compiler.  Default is "mpicc".
+export MPCC := mpicc
+
+
+# =========== Compiler Optimizations =============
+
+INTEL=/opt/intel/Compiler/11.0/083/lib/intel64
+
+# Compiler flags for all
+COMMON_FLAGS := -O3
+export F90FLAGS := -vec_report0 $(COMMON_FLAGS) -heap-arrays 16384
+# Fortran 77 compiler flags
+export FFLAGS := $(COMMON_FLAGS)
+# C compiler flags.
+export CFLAGS := $(COMMON_FLAGS)
+# Extra flags used for linking
+export LDFLAGS := -lm -cxxlib $(INTEL)/libguide.a -lpthread
+# F90 flags for OpenMP parallelization
+export OPENMP = -openmp
+
+COMMON_FLAGS_DEBUG := -O0 -g 
+COMMON_FLAGS_FORTRAN_DEBUG := $(COMMON_FLAGS_DEBUG) -check bounds -check format -check pointers -check uninit -check output_conversion -heap-arrays 16384
+export F90FLAGS_DEBUG := -vec_report0 $(COMMON_FLAGS_FORTRAN_DEBUG)
+export FFLAGS_DEBUG := $(COMMON_FLAGS_FORTRAN_DEBUG)
+export CFLAGS_DEBUG := $(COMMON_FLAGS_DEBUG)
+export LDFLAGS_DEBUG := -lm -cxxlib $(INTEL)/libguide.a -lpthread
+
+# ============== Fortran Features ================
+# Set this variable to 1 if the fortran compiler
+# produces module files with capitalization (*.MOD)
+# instead of lowercase (*.mod).
+#export FORTRAN_UPPER := 1
+
+# =============== CFITSIO Linking ================
+# The include and linking commands for cfitsio.
+export CFITSIO_INCLUDE := 
+export CFITSIO_LINK := -L/home/hke/local/lib -lcfitsio
+
+# =============== LAPACK Linking =================
+# The include and linking commands for LAPACK.
+MKL_PATH = /opt/intel/Compiler/11.0/083/mkl/lib/em64t
+export LAPACK_INCLUDE := 
+#export LAPACK_LINK := -L$(MKL_PATH) -L/site/lib -lmkl_lapack -lmkl 
+export LAPACK_LINK := -L$(MKL_PATH) -Wl,--start-group $(MKL_PATH)/libmkl_intel_lp64.a $(MKL_PATH)/libmkl_sequential.a $(MKL_PATH)/libmkl_core.a -Wl,--end-group -lpthread 
+
+
+# =============== HEALPix Linking =================
+# The include and linking commands for HEALPix.
+export HEALPIX_INCLUDE := -I/home/hke/local/include
+export HEALPIX_LINK := -L/home/hke/local/lib -lhealpix
+
+export HEALPIX_INCLUDE_CPP := -I/home/hke/local/include
+export HEALPIX_LINK_CPP := -L/home/hke/local/lib -lhealpix_cxx -lcxxsupport -lfftpack
+
+export QPOINT_INCLUDE := -I/home/hke/local/include
+export QPOINT_LINK := -L/home/hke/local/lib -lqpoint
+
+# =============== FFTW3 ===========================
+export FFTW_INCLUDE := -I/home/sigurdkn/local/include
+export FFTW_LINK := -L/home/sigurdkn/local/lib -lfftw3_threads -lfftw3f_threads -lfftw3 -lfftw3f -lgomp
+
+# =============== Scalapack =======================
+export SCALAPACK_LIBS := $(MKL_PATH)/libmkl_scalapack_lp64.a $(MKL_PATH)/libmkl_solver_lp64_sequential.a $(MKL_PATH)/libmkl_intel_lp64.a $(MKL_PATH)/libmkl_sequential.a $(MKL_PATH)/libmkl_core.a $(MKL_PATH)/libmkl_blacs_openmpi_lp64.a
+
+# =============== NOVAS ============================
+export NOVAS_LINK := -L/home/hke/local/lib/novas -lnovas
+
+export PNG_LINK := -lpng
+
+# =============== HDF ============================
+export HDF_LINK := -L/home/sigurdkn/local/lib -lhdf5_fortran -lhdf5 
+export HDF_LINK_CPP := -L/home/sigurdkn/local/lib -lhdf5_cpp -lhdf5 
+export HDF_INCLUDE := -I/home/sigurdkn/local/include

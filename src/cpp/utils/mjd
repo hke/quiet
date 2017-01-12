@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+TZ=UTC+0 idate `mjd2unix $1` %s '%Y-%m-%d %H:%M:%S'

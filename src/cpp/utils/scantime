@@ -1,0 +1,89 @@
+#!/bin/bash
+# Arguments: runlist accepted navn
+argv=("$@")
+nf=0
+modules=(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18)
+verbose=
+effective=1
+hours=1
+for (( i=0; i < ${#argv[@]}; i++ )); do
+	case "${argv[$i]}" in
+		-P) modules=(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16) ;;
+		-T) modules=(17 18) ;;
+		-a) modules=(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18) ;;
+		-e) effective=1 ;;
+		-t) effective= ;;
+		-v) verbose=1 ;;
+		-q) verbose= ;;
+		-h) hours=1 ;;
+		-m*) hours= ;;
+		*) args[$nf]="${argv[$i]}" ; nf=$(($nf+1)) ;;
+	esac
+done
+if (( ${#args[@]} < 3)); then
+	echo "Usage: scantime [options] runlist accepted patchname
+Options are:
+  -P: Consider only polarization diodes
+  -T: Consider only temperature diodes
+  -a: Consider all diodes (default)
+  -e: Print effective scanning time = diode time / ndiodes
+
+Output: {number of constant elevation scans} {diode time}"
+	exit
+fi
+runlist="${args[0]}"
+if [[ ! -f $runlist ]]; then echo Can\'t find runlist $runlist!; exit; fi
+accepted="${args[1]}"
+if [[ ! -f $accepted ]]; then echo Can\'t fine accepted $accepted!; exit; fi
+patch="${args[2]}"
+ndiode=$((4*${#modules[@]}))
+# Extract the relevant info from runlist
+res=`perl -ne "/^    (\d+) (\d+\.\d+) (\d+\.\d+) \d+ ok ([^_]+)_($patch)_/ and print \"\\$1 \\$2 \\$3 \\$5\n\"" "$runlist" | while read line; do
+	toks=($line)
+	run=${toks[0]}
+	duration=\`awk "BEGIN{print ${toks[2]}-${toks[1]}}"\`
+	nseg=\`grep -c "^[ ]*$run " "$accepted"\`
+	grep "^[ ]*$run " "$accepted" | while read line2; do
+		toks=($line2)
+		seg=${toks[1]}
+		rejects=0
+		for (( i = 3; i < $((3+2*${toks[2]})); i += 2)); do
+			k=0;
+			for (( j=0; j < ${#modules[@]}; j++)); do
+				if (( ${toks[$i]} == ${modules[$j]} )); then k=$((k+1)); fi
+			done
+			if (( $k > 0 )); then rejects=$((rejects+1)); fi
+		done
+		diode_time=\`awk "BEGIN{print $duration*($ndiode-$rejects)/$nseg}"\`
+		time_slice=\`awk "BEGIN{print $duration/$nseg}"\`
+		if (($rejects < $ndiode)); then nces=1; else nces=0; fi
+		echo $nces $diode_time $time_slice
+	done
+done | perl -e '$tces=0; $ces=0; $dtime=0.0; $ttime=0.0; while(<>) { /(\d+) (\d+\.\d+) (\d+\.\d+)/; $tces+=1; $ces+=$1; $dtime+=$2; $ttime+=$3}; print "$ces $dtime $ttime $tces\n"'`
+toks=($res)
+nces=${toks[0]}
+diode_time=${toks[1]}
+total_time=${toks[2]}
+tces=${toks[3]}
+effective_time=`awk "BEGIN{print $diode_time/$ndiode}"`
+total_dtime=`awk "BEGIN{print $total_time*$ndiode}"`
+if [[ $hours ]]; then
+	effective_time=`awk "BEGIN{print $effective_time*24}"`
+	total_time=`awk "BEGIN{print $total_time*24}"`
+fi
+efficiency=`awk "BEGIN{print $effective_time/$total_time*100}"`
+
+# Output part
+unit="hours"; t1=$effective_time; t2=$total_time;
+if [[ ! $hours ]]; then unit="days"; fi
+if [[ ! $effective ]]; then
+	unit="diode $unit"; t1=$diode_time; t2=$total_dtime;
+fi
+if [[ $verbose ]]; then
+	echo Number of constant elevation scans used: $nces
+	echo Total number of constant elevation scans considered: $tces
+	echo Scanning time: $t1 $unit out of a possible $t2 $unit
+	echo Scanning efficiency: $efficiency%
+else
+	echo $nces $tces $t1 $t2 $efficiency
+fi

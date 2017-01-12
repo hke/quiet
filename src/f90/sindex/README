@@ -1,0 +1,99 @@
+sindex  -a howto guide
+
+============================
+============================
+Make a simulation
+============================
+============================
+
+
+prepare files:
+==============
+-start with a wmap7 Kband (23GHz) map. downgrade to nside 128 with 
+> fsmap nside ...
+-make the Ka band (33GHz) using 
+> sindex_utils simulate_map wmap7_K_map_n128.fits wmap7sim_Ka_map_n128_off10.fits 33. 10.
+
+edit the info.txt file in sim dir to
+******info.txt*********
+2 128 nest
+23.0 wmap7_K_map_n128.fits wmap7_QU_n128_K.hdf WMAP7_K_beam.fits
+33.0 wmap7sim_Ka_map_n128_off10.fits wmap7_QU_n128_Ka.hdf WMAP7_Ka_beam.fits
+***********************
+
+
+set up region definitions:
+=========================
+-put the following in a file: (you can put lots of other rules here for other regions)
+***************com2.txt**************
+1 strip_square 10 2 600
+*************************************
+-create dirs with subdirs
+> region_paint com2.txt 128 nest w7sim.fits
+
+
+populate subdirs with files
+===========================
+run setup_regions_wmap7_simulation
+fx with this script
+****************************
+#!/usr/bin/env bash
+
+for ((i=1; i<=18; i++)); do
+    echo $i
+    cd s$i
+    ~/quiet_svn/oslo/src/f90/utils/setup_regions_wmap7_simulation sparsity.fits ../../sim 2 60 dir
+    cd ..
+done
+******************************
+
+Now you have the file hierarchy that sindex needs
+regions which is stripes, and subregions of squares within the stripe.
+
+If you need a flat version with only regions (and not subregions)
+> mkdir Aflat
+> changedirs ../s? ../s??
+************changedirs*************
+#!/usr/bin/env bash
+#
+#run with: ./changedirs ../s? ../s??
+#stand in the dir you want the softlinks!
+#
+
+i=0
+for stripe in "$@" ;do
+    echo $stripe
+    for reg in $stripe/dir? $stripe/dir?? $stripe/dir??? ; do
+	if [[ -d $reg ]] ; then
+	    ((i++))
+	    echo ln -s "$reg" k$i
+	    ln -s "$reg" k$i
+	fi
+    done
+done
+**************************************
+
+
+
+
+
+*********
+new regime with pol mask
+
+-lag hovedmaska
+sindex_utils makemask pol_mask_median_n128.fits utmaske.fits
+-split hovedregionene og lag s-katalogene
+region_split pol_region_maske.fits s 
+-sjekk opp s1-6 manuellt
+region_paint com.txt 128 nest utsparsity.fits
+-kjør setup_regions_wmap7 på hver av dem
+setup_regions_wmap7 utsparsity.fits ../../wmap7 2 60. dir
+-kjør run_setup_regions på s7-smax
+
+
+======================
+======================
+RUN SINDEX
+======================
+======================
+
